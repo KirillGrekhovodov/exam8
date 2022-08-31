@@ -1,3 +1,53 @@
-from django.shortcuts import render
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse_lazy, reverse
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 
-# Create your views here.
+from webapp.forms import ProductForm
+from webapp.models import Product
+
+
+class IndexView(ListView):
+    model = Product
+    template_name = "products/index.html"
+    context_object_name = "products"
+    paginate_by = 6
+
+
+class DetailProductView(DetailView):
+    template_name = "products/detail.html"
+    model = Product
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        reviews = self.object.reviews.all()
+        if not self.request.user.has_perm("webapp.view_not_moderated_review"):
+            reviews = reviews.filter(is_moderated=True)
+        context['reviews'] = reviews.order_by("-edited_at")
+        return context
+
+
+class CreateProductView(CreateView):
+    form_class = ProductForm
+    template_name = "products/create.html"
+
+    def get_success_url(self):
+        return reverse("webapp:product_view", kwargs={"pk": self.object.pk})
+
+
+class UpdateProductView(PermissionRequiredMixin, UpdateView):
+    form_class = ProductForm
+    template_name = "products/update.html"
+    model = Product
+    permission_required = "webapp.change_product"
+
+    # def has_permission(self):
+    #     return self.request.user.has_perm("webapp.change_product")
+    def get_success_url(self):
+        return reverse("webapp:product_view", kwargs={"pk": self.object.pk})
+
+
+class DeleteProduct(PermissionRequiredMixin, DeleteView):
+    model = Product
+    template_name = "products/delete.html"
+    success_url = reverse_lazy('webapp:index')
+    permission_required = "webapp.delete_product"

@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db.models import Avg
 
 CHOISES = [('other', 'Разное'), ('phones', 'Телефоны'), ('headphones', 'Наушники'), ('cases', 'Чехол')]
 
@@ -20,6 +21,10 @@ class Product(models.Model):
     def __str__(self):
         return f"{self.name} - {self.category}"
 
+    def get_avg(self):
+        result = self.reviews.filter(is_moderated=True).aggregate(avg=Avg("mark"))
+        return result["avg"]
+
 
 class Review(models.Model):
     author = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='reviews', verbose_name='Автор')
@@ -35,6 +40,7 @@ class Review(models.Model):
         db_table = "reviews"
         verbose_name = "Отзыв"
         verbose_name_plural = "Отзывы"
+        permissions = [("view_not_moderated_review", "Видеть немодерированные отзывы")]
 
     def __str__(self):
         return f"{self.author.username} - {self.product.name}"
